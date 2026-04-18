@@ -20,14 +20,15 @@ if not getattr(torch.load, "_cpu_patched", False):
 
 import torchmetrics
 
-# Guard: only patch torchmetrics once across Streamlit reruns
 if not getattr(torchmetrics.Metric, "_cpu_patched", False):
-    _orig_metric_apply = torchmetrics.Metric._apply
-    def _safe_metric_apply(self, fn, exclude_state=frozenset(), **kwargs):
-        self._device = torch.device("cpu")
-        return _orig_metric_apply(self, fn, exclude_state=exclude_state, **kwargs)
-    torchmetrics.Metric._apply = _safe_metric_apply
-    torchmetrics.Metric._cpu_patched = True
+    def _make_patch():
+        _real = torchmetrics.Metric._apply
+        def _safe(self, fn, exclude_state="", **kwargs):
+            object.__setattr__(self, "_device", torch.device("cpu"))
+            return _real(self, fn, exclude_state=exclude_state, **kwargs)
+        torchmetrics.Metric._apply = _safe
+        torchmetrics.Metric._cpu_patched = True
+    _make_patch()
     
 _orig_metric_apply = torchmetrics.Metric._apply
 def _safe_metric_apply(self, fn, *args, **kwargs):
