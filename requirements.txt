@@ -1,0 +1,13 @@
+streamlit
+pandas
+numpy
+plotly
+xgboost
+scikit-learn
+holidays
+python-dotenv
+requests
+supabase
+torch
+lightning
+pytorch-forecasting
