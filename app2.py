@@ -1,5 +1,3 @@
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -15,9 +13,20 @@ from pathlib import Path
 import warnings
 
 from supabase import create_client, Client
-import torch
 import lightning.pytorch as pl
 from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
+import os, sys
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_DEVICE_ORDER"]    = "PCI_BUS_ID"
+
+from unittest.mock import MagicMock
+_fake_nvml = MagicMock()
+_fake_nvml.nvmlDeviceGetCount.return_value = 0
+sys.modules["pynvml"]     = _fake_nvml
+sys.modules["nvidia_smi"] = _fake_nvml
+
+import torch
+torch.cuda.is_available = lambda: False
 
 warnings.filterwarnings('ignore')
 
@@ -321,9 +330,11 @@ def load_models():
     model_solaire = joblib.load("model_solaire_v2.pkl") 
     
     model_eolien_tft = TemporalFusionTransformer.load_from_checkpoint(
-        "model_eolien_tft.ckpt", 
-        map_location=torch.device("cpu")
-    )
+    "model_eolien_tft.ckpt",
+    map_location=torch.device("cpu"),
+    strict=False,
+)
+model_eolien_tft.eval()
     return model_conso, model_solaire, model_eolien_tft
 
 @st.cache_data(ttl=900)
