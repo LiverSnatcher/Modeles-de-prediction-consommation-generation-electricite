@@ -319,9 +319,10 @@ def stitch_forecasts(old_series, new_series, split_dt):
 def load_models():
     model_conso = joblib.load("model_consommation.pkl")
     model_solaire = joblib.load("model_solaire_v2.pkl") 
+    
     model_eolien_tft = TemporalFusionTransformer.load_from_checkpoint(
         "model_eolien_tft.ckpt", 
-        map_location="cpu"
+        map_location=torch.device("cpu")
     )
     return model_conso, model_solaire, model_eolien_tft
 
