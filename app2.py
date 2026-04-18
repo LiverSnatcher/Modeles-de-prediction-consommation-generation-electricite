@@ -21,24 +21,15 @@ if not getattr(torch.load, "_cpu_patched", False):
 import torchmetrics
 
 if not getattr(torchmetrics.Metric, "_cpu_patched", False):
-    def _make_patch():
-        _real = torchmetrics.Metric._apply
-        def _safe(self, fn, exclude_state="", **kwargs):
+    _real_apply = torchmetrics.Metric._apply
+    def _safe_apply(self, fn, exclude_state="", **kwargs):
+        try:
             object.__setattr__(self, "_device", torch.device("cpu"))
-            return _real(self, fn, exclude_state=exclude_state, **kwargs)
-        torchmetrics.Metric._apply = _safe
-        torchmetrics.Metric._cpu_patched = True
-    _make_patch()
-    
-_orig_metric_apply = torchmetrics.Metric._apply
-def _safe_metric_apply(self, fn, *args, **kwargs):
-    self._device = torch.device("cpu")
-    if not args and "exclude_state" not in kwargs:
-        kwargs["exclude_state"] = frozenset()
-    elif args and isinstance(args[0], bool):
-        args = (frozenset(),) + args[1:]
-    return _orig_metric_apply(self, fn, *args, **kwargs)
-torchmetrics.Metric._apply = _safe_metric_apply
+        except Exception:
+            pass
+        return _real_apply(self, fn, exclude_state=exclude_state, **kwargs)
+    torchmetrics.Metric._apply = _safe_apply
+    torchmetrics.Metric._cpu_patched = True
 
 import streamlit as st
 import pandas as pd
