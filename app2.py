@@ -257,8 +257,8 @@ hr { border-color: #6a9858 !important; margin: 1.2rem 0 !important; }
 # ==========================================
 @st.cache_resource
 def init_supabase() -> Client:
-    url = st.secrets["https://qmjonjhageflimrciedv.supabase.co"]
-    key = st.secrets["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtam9uamhhZ2VmbGltcmNpZWR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MTgxMjEsImV4cCI6MjA5MjA5NDEyMX0.p6KWg6bTJvCKlYcHldX2nx_g3BdeBe-edDzCm_N0T1o"]
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
     return create_client(url, key)
 
 supabase = init_supabase()
