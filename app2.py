@@ -1,3 +1,5 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -12,7 +14,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import warnings
 
-from supabase import create_client, Client # <-- NOUVEAU
+from supabase import create_client, Client
 import torch
 import lightning.pytorch as pl
 from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
@@ -423,9 +425,6 @@ def bridge_pred(real: pd.Series, pred: pd.Series) -> pd.Series:
 
 
 # ==========================================
-# PLOTLY THEME
-# ==========================================
-# ==========================================
 # PLOTLY THEME — Printemps uniforme
 # ==========================================
 PLOTLY_BASE = dict(
@@ -725,7 +724,7 @@ if run_btn:
 
         old_run = load_rolling_forecast()
         
-        # LOGIQUE ROLLING FORECAST : Moins d'une heure ? On charge juste la DB !
+        # Charge les prévisions depuis la DB si ça fait moins d'une heure
         if old_run and (last_known_dt - old_run['run_dt']).total_seconds() <= 3600:
             st.success("⚡ Prévision instantanée chargée depuis Supabase (Générée il y a moins d'1h)")
             df_conso      = old_run["conso"].to_frame("Prédiction (MW)")
@@ -734,7 +733,7 @@ if run_btn:
             df_residuelle = old_run["residuelle"].to_frame("Prédiction (MW)")
             
         else:
-            # Plus d'une heure : On lance l'inférence lourde
+            # Charge une nouvelle inférence après une heure
             model_conso, model_solaire, model_tft = load_models()
             start_date    = last_known_dt.date()
             df_weather    = get_weather_all(start_date, horizon_jours)
@@ -772,7 +771,7 @@ if run_btn:
             pred_conso_list.append({"Date": target_dt, "Prédiction (MW)": pred_c})
             df_working_c.loc[target_dt] = pred_c
 
-            # --- Solaire V2 (Strict Day-Ahead + Load Factor) ---
+            # Solaire V2 (Strict Day-Ahead + Load Factor)
             hs, hc = cyclic(target_dt.hour + target_dt.minute/60.0, 24)
             ms, mc = cyclic(target_dt.month, 12)
             js, jc = cyclic(target_dt.timetuple().tm_yday, 365)
@@ -807,7 +806,7 @@ if run_btn:
             pred_sol_list.append({"Date": target_dt, "Prédiction (MW)": pred_s_mw})
             df_working_s.loc[target_dt] = pred_s_lf
 
-        # ── TFT Éolien ──
+        # TFT Éolien
         pred_eol_list = []
         df_eol_hist   = df_renew_lags[["Eolien"]].copy()
         df_eol_hist["eolien_lf"] = df_eol_hist["Eolien"] / CURRENT_CAPACITY
@@ -870,7 +869,7 @@ if run_btn:
 
             current_dt += timedelta(minutes=30 * steps_in_chunk)
 
-        # ── Assemblage ──
+        # Assemblage
         df_conso_new = pd.DataFrame(pred_conso_list).set_index("Date")["Prédiction (MW)"]
         df_eol_new   = pd.DataFrame(pred_eol_list).set_index("Date")["Prédiction (MW)"]
         df_sol_new   = pd.DataFrame(pred_sol_list).set_index("Date")["Prédiction (MW)"]
@@ -893,11 +892,10 @@ if run_btn:
             ).clip(lower=0)
         })
 
-        # On pousse la nouvelle timeline fusionnée dans Supabase
         save_rolling_forecast(last_known_dt, df_conso, df_eol, df_sol, df_residuelle)
         st.success("✅ Modèles exécutés avec succès. Nouvelle timeline sauvegardée dans Supabase.")
 
-        # ── Historique affichage ──
+        # Historique affichage
         n_hist            = max(192 * 2, horizon_jours * 4 * 24)
         recent_conso      = df_eco2mix["consommation"].dropna().tail(n_hist).rename("Réel (MW)")
         recent_eol        = trim_flat_tail(df_eco2mix["eolien"].dropna()).tail(n_hist).rename("Réel (MW)")
@@ -906,10 +904,10 @@ if run_btn:
             recent_conso - recent_eol.fillna(0) - recent_sol.fillna(0)
         ).clip(lower=0).dropna().rename("Réel (MW)")
 
-        # ── Run comparé ──
+        # Run comparé
         cmp_conso = cmp_eol = cmp_sol = cmp_res = None
 
-        # ── KPI Cards ──
+        # KPI Cards
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Consommation",      f"{int(recent_conso.iloc[-1]):,} MW")
         col2.metric("Éolien",            f"{int(recent_eol.iloc[-1]):,} MW")
