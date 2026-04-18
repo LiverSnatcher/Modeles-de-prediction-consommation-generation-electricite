@@ -11,12 +11,24 @@ sys.modules["nvidia_smi"] = _fake_nvml
 import torch
 torch.cuda.is_available = lambda: False
 
-_orig_torch_load = torch.load
-def _cpu_load(f, map_location=None, **kwargs):
-    return _orig_torch_load(f, map_location=torch.device("cpu"), **kwargs)
-torch.load = _cpu_load
+if not getattr(torch.load, "_cpu_patched", False):
+    _orig_torch_load = torch.load
+    def _cpu_load(f, map_location=None, **kwargs):
+        return _orig_torch_load(f, map_location=torch.device("cpu"), **kwargs)
+    _cpu_load._cpu_patched = True
+    torch.load = _cpu_load
 
 import torchmetrics
+
+# Guard: only patch torchmetrics once across Streamlit reruns
+if not getattr(torchmetrics.Metric, "_cpu_patched", False):
+    _orig_metric_apply = torchmetrics.Metric._apply
+    def _safe_metric_apply(self, fn, exclude_state=frozenset(), **kwargs):
+        self._device = torch.device("cpu")
+        return _orig_metric_apply(self, fn, exclude_state=exclude_state, **kwargs)
+    torchmetrics.Metric._apply = _safe_metric_apply
+    torchmetrics.Metric._cpu_patched = True
+    
 _orig_metric_apply = torchmetrics.Metric._apply
 def _safe_metric_apply(self, fn, *args, **kwargs):
     self._device = torch.device("cpu")
