@@ -18,9 +18,9 @@ torch.load = _cpu_load
 
 import torchmetrics
 _orig_metric_apply = torchmetrics.Metric._apply
-def _safe_metric_apply(self, fn, recurse=True):
+def _safe_metric_apply(self, fn, *args, **kwargs):
     self._device = torch.device("cpu")
-    return _orig_metric_apply(self, fn, recurse)
+    return _orig_metric_apply(self, fn, *args, **kwargs)
 torchmetrics.Metric._apply = _safe_metric_apply
 
 import streamlit as st
