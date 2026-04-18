@@ -316,8 +316,11 @@ def stitch_forecasts(old_series, new_series, split_dt):
 @st.cache_resource
 def load_models():
     model_conso = joblib.load("model_consommation.pkl")
-    model_solaire = joblib.load("model_solaire_v2.pkl") # <-- Mise à jour V2
-    model_eolien_tft = TemporalFusionTransformer.load_from_checkpoint("model_eolien_tft.ckpt")
+    model_solaire = joblib.load("model_solaire_v2.pkl") 
+    model_eolien_tft = TemporalFusionTransformer.load_from_checkpoint(
+        "model_eolien_tft.ckpt", 
+        map_location="cpu"
+    )
     return model_conso, model_solaire, model_eolien_tft
 
 @st.cache_data(ttl=900)
