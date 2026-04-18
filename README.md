@@ -1,69 +1,59 @@
 # Modeles-de-prediction-consommation-et-generation-electricite
-# 🌿 Réseau Électrique · France
+# Réseau Électrique · France
 
-Application de prévision en temps réel du réseau électrique français — consommation nationale,
-production éolienne, production solaire et charge résiduelle — alimentée par les données live RTE éCO2mix.
+Prévision de la consommation, de la production éolienne et solaire, et de la charge résiduelle
+du réseau électrique français. Données temps réel RTE via l'API éCO2mix (ODRE).
 
-## Démo en ligne
-👉 [modeles-de-prediction-consommation-generation-electricite-hk64.streamlit.app](https://modeles-de-prediction-consommation-generation-electricite-hk64.streamlit.app)
-
-## Captures d'écran
+**Démo :** https://modeles-de-prediction-consommation-generation-electricite-hk64.streamlit.app
 
 ![Dashboard](screenshots/dashboard.png)
-![Consommation](screenshots/consommation.png)
-![Solaire](screenshots/solaire.png)
-![Eolien](screenshots/eolien.png)
 
 ---
 
-## Modèles
+## Comment ça marche
 
-### ⚡ Consommation — XGBoost
-Entraîné sur les données historiques RTE (2015–2025) rééchantillonnées à 30 minutes.
-Températures issues de l'API Open-Meteo archive (ERA5) pour l'entraînement, historical-forecast pour le test.
+Trois modèles indépendants tournent en parallèle :
 
-**Features :** heure, jour de la semaine, mois, jours fériés, température,
-lags à H-24h / H-48h / H-168h, moyennes glissantes sur 24h et 168h.
+- **Consommation & Solaire** — XGBoost entraîné sur les données RTE 2015–2025 (30 min).
+  Features : heure, jour, mois, jours fériés, température Open-Meteo, lags et moyennes glissantes.
+  Pour le solaire, la cible est un load factor (0–1) reconverti en MW, avec météo multi-zones
+  sur 4 régions (Occitanie, PACA, Nouvelle-Aquitaine, Auvergne-RA). MAE = 301 MW.
 
----
+- **Éolien** — Temporal Fusion Transformer (PyTorch Forecasting, ~1M params), horizon H+24h,
+  7 zones météo à 100m d'altitude, courbe de puissance physique + correction densité de l'air.
+  MAPE = 14,7% — c'est le modèle le moins fiable des trois, l'éolien étant difficile à prévoir
+  au-delà de quelques heures. Les prévisions à horizon long peuvent diverger.
 
-### ☀️ Solaire — XGBoost v2
-La cible est le **load factor** (normalisé 0–1 par rapport à la capacité installée de 21 GW),
-reconverti en MW à l'inférence. Approche multi-zones sur 4 régions.
-
-**Zones météo :** Nouvelle-Aquitaine, Occitanie, PACA, Auvergne-Rhône-Alpes
-
-**Features par zone :** rayonnement global et direct, couverture nuageuse, température
-+ encodages cycliques (heure, mois, jour de l'année), lag H-24h, moyenne glissante 24h
-
-**Hyperparamètres :** n_estimators=1500, lr=0.03, max_depth=7, subsample=0.85, early stopping
-
-**Performances :** MAE = 301 MW · RMSE = 619 MW
+Les résultats sont mis en cache dans **Supabase** et rafraîchis toutes les heures.
+Si la dernière prévision date de moins d'1h, elle est chargée directement depuis la DB
+sans relancer les modèles.
 
 ---
 
-### 💨 Éolien — Temporal Fusion Transformer (PyTorch)
-Modèle deep learning séquence-à-séquence. La cible est également un **load factor** (capacité = 25,5 GW).
-Un callback `ForecastUncertaintyNoise` corrompt les covariables météo futures pendant l'entraînement
-avec un bruit croissant linéairement avec l'horizon, simulant la dégradation réelle des prévisions.
+## Stack
 
-**Architecture :** hidden_size=16 · attention_head_size=4 · dropout=0.1 · QuantileLoss
-· fenêtre encodeur = 96 pas (48h) · horizon de prévision = 48 pas (24h)
-
-**Zones météo (7) :** HDF Somme, HDF Aisne, Grand Est Marne, Grand Est Aube,
-Occitanie Aude, Offshore Saint-Nazaire, Offshore Fécamp
-
-**Features par zone :** vitesse du vent à 100m, direction, température, pression de surface,
-courbe de puissance physique, correction densité de l'air
-
-**Dataset :** hybride ERA5 (2014–2020) + API historical-forecast Open-Meteo (2021–2025)
-
-**Performances :** MAE validation = 0,026 (load factor) · MAPE = 14,7%
-
-> ⚠️ Le modèle éolien reste le moins stable des trois — l'éolien est intrinsèquement difficile
-> à prévoir au-delà de quelques heures, et les résultats peuvent diverger sur des horizons longs.
-> Travail en cours.
+Python · XGBoost · PyTorch Forecasting · Lightning · Streamlit · Plotly · Supabase · Open-Meteo
 
 ---
 
-## Architecture & Cache
+## Lancer en local
+
+```bash
+git clone https://github.com/LiverSnatcher/modeles-de-prediction-consommation-generation-electricite
+cd modeles-de-prediction-consommation-generation-electricite
+pip install -r requirements.txt
+streamlit run app2.py
+```
+
+Ajouter un fichier `.streamlit/secrets.toml` :
+```toml
+SUPABASE_URL = "..."
+SUPABASE_KEY = "..."
+```
+
+Trois fichiers modèles attendus à la racine : `model_consommation.pkl`, `model_solaire_v2.pkl`, `model_eolien_tft.ckpt`.
+
+---
+
+Maxime Mbende — Bachelor IA & Data, Nexa Digital School (alternance)  
+[LinkedIn](https://www.linkedin.com/in/maxime-mbende) · [GitHub](https://github.com/LiverSnatcher)
