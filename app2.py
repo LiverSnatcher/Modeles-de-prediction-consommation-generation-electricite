@@ -20,6 +20,10 @@ import torchmetrics
 _orig_metric_apply = torchmetrics.Metric._apply
 def _safe_metric_apply(self, fn, *args, **kwargs):
     self._device = torch.device("cpu")
+    if not args and "exclude_state" not in kwargs:
+        kwargs["exclude_state"] = frozenset()
+    elif args and isinstance(args[0], bool):
+        args = (frozenset(),) + args[1:]
     return _orig_metric_apply(self, fn, *args, **kwargs)
 torchmetrics.Metric._apply = _safe_metric_apply
 
