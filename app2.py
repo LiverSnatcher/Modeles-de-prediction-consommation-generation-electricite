@@ -333,8 +333,8 @@ def load_models():
     "model_eolien_tft.ckpt",
     map_location=torch.device("cpu"),
     strict=False,
-)
-model_eolien_tft.eval()
+    )
+    model_eolien_tft.eval()
     return model_conso, model_solaire, model_eolien_tft
 
 @st.cache_data(ttl=900)
