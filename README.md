@@ -61,6 +61,7 @@ SUPABASE_KEY = "..."
 ```
 
 Trois fichiers modèles attendus à la racine : `model_consommation.pkl`, `model_solaire_v2.pkl`, `model_eolien_tft.ckpt`.
+Design généré par Claude.
 
 ---
 
