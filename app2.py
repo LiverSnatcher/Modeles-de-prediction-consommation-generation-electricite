@@ -472,11 +472,10 @@ def make_fig(real, pred, color_real, color_pred, title, split_dt, compare_series
 
     # 3. Prévision Future (Ligne pointillée épaisse)
     if not pred_future.empty:
-        # Création du "pont" visuel pour rattacher le futur au passé sans trou
-        if not pred_past.empty:
-            bridge_dt, bridge_val = pred_past.index[-1], pred_past.iloc[-1]
-        elif not real.empty:
+        if not real.empty:
             bridge_dt, bridge_val = real.index[-1], real.iloc[-1]
+        elif not pred_past.empty:
+            bridge_dt, bridge_val = pred_past.index[-1], pred_past.iloc[-1]
         else:
             bridge_dt = None
 
