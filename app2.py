@@ -396,10 +396,13 @@ def hex_to_rgba(hex_color, alpha):
 
 
 def bridge_pred(real: pd.Series, pred: pd.Series) -> pd.Series:
+    """Ajoute le dernier point réel pour continuité, et trie l'index pour éviter les retours en arrière."""
     if real.empty or pred.empty:
         return pred
+    
     bridge = pd.Series([real.iloc[-1]], index=[real.index[-1]])
-    return pd.concat([bridge, pred])
+    combined = pd.concat([bridge, pred])
+    return combined[~combined.index.duplicated(keep='last')].sort_index()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
