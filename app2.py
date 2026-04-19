@@ -439,39 +439,68 @@ PLOTLY_BASE = dict(
 def make_fig(real, pred, color_real, color_pred, title, split_dt, compare_series=None):
     fig = go.Figure()
 
-    fig.add_vline(x=split_dt, line=dict(color="#a8c8a0", width=1, dash="dot"))
+    # Ligne verticale Maintenant
+    fig.add_vline(x=split_dt, line=dict(color="#c0dfa8", width=1, dash="dot"))
     fig.add_vrect(
         x0=split_dt, x1=pred.index.max(),
-        fillcolor="rgba(255,255,255,0.02)", layer="below", line_width=0,
+        fillcolor="rgba(255,255,255,0.02)", layer="below", line_width=0
     )
+
+    # 1. Historique Réel
     fig.add_trace(go.Scatter(
         x=real.index, y=real.values,
         name="Historique RTE",
         line=dict(color=color_real, width=2.2),
-        fill="tozeroy", fillcolor=hex_to_rgba(color_real, 0.12),
+        fill="tozeroy",
+        fillcolor=hex_to_rgba(color_real, 0.12),
         hovertemplate="%{y:,.0f} MW<extra>Historique</extra>",
     ))
-    if compare_series is not None:
+
+    # Séparation de la prédiction en Passé / Futur
+    pred_past = pred[pred.index <= split_dt]
+    pred_future = pred[pred.index > split_dt]
+
+    # 2. Prévision Passée (Ligne continue, plus fine, opacité réduite)
+    if not pred_past.empty:
         fig.add_trace(go.Scatter(
-            x=compare_series.index, y=compare_series.values,
-            name="Run précédent",
-            line=dict(color="#f0e8a0", width=1.8, dash="dot"),
-            opacity=0.85,
-            hovertemplate="%{y:,.0f} MW<extra>Run précédent</extra>",
+            x=pred_past.index, y=pred_past.values,
+            name="Prévision Archivée",
+            line=dict(color=color_pred, width=1.5, dash="solid"),
+            opacity=0.55, 
+            hovertemplate="%{y:,.0f} MW<extra>Archivée</extra>",
         ))
-    pred_bridged = bridge_pred(real, pred)
-    fig.add_trace(go.Scatter(
-        x=pred_bridged.index, y=pred_bridged.values,
-        name="Prévision IA",
-        line=dict(color=color_pred, width=2.4, dash="dash"),
-        hovertemplate="%{y:,.0f} MW<extra>Prévision</extra>",
-    ))
+
+    # 3. Prévision Future (Ligne pointillée épaisse)
+    if not pred_future.empty:
+        # Création du "pont" visuel pour rattacher le futur au passé sans trou
+        if not pred_past.empty:
+            bridge_dt, bridge_val = pred_past.index[-1], pred_past.iloc[-1]
+        elif not real.empty:
+            bridge_dt, bridge_val = real.index[-1], real.iloc[-1]
+        else:
+            bridge_dt = None
+
+        if bridge_dt is not None:
+            bridge_series = pd.Series([bridge_val], index=[bridge_dt])
+            pred_future = pd.concat([bridge_series, pred_future])
+            pred_future = pred_future[~pred_future.index.duplicated(keep='last')].sort_index()
+
+        fig.add_trace(go.Scatter(
+            x=pred_future.index, y=pred_future.values,
+            name="Prévision Future",
+            line=dict(color=color_pred, width=2.4, dash="dash"),
+            hovertemplate="%{y:,.0f} MW<extra>Future</extra>",
+        ))
+
     fig.update_layout(
         **PLOTLY_BASE,
-        title=dict(text=title, font=dict(family="Nunito, sans-serif", size=13, color="#e0edd8"), x=0),
+        title=dict(
+            text=title,
+            font=dict(family="Nunito, sans-serif", size=13, color="#f0f8e8"),
+            x=0
+        )
     )
     return fig
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. INTERFACE
