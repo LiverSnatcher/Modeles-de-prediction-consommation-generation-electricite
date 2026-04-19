@@ -404,7 +404,23 @@ def bridge_pred(real: pd.Series, pred: pd.Series) -> pd.Series:
     combined = pd.concat([bridge, pred])
     return combined[~combined.index.duplicated(keep='last')].sort_index()
 
-
+def apply_error_decay(real_val, pred_series, decay_rate=0.85):
+    """
+    Calcule l'erreur actuelle et l'applique au futur avec une décroissance exponentielle
+    pour un raccordement visuel parfait.
+    """
+    if pred_series.empty or pd.isna(real_val):
+        return pred_series
+        
+    # Calcul du saut (différence) à T=0
+    gap = real_val - pred_series.iloc[0]
+    
+    # Création du multiplicateur qui s'estompe (1.0, 0.85, 0.72, 0.61...)
+    decay_curve = np.power(decay_rate, np.arange(len(pred_series)))
+    
+    smoothed_series = pred_series + (gap * decay_curve)
+    return smoothed_series.clip(lower=0)
+    
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. PLOTLY
 # ══════════════════════════════════════════════════════════════════════════════
@@ -714,10 +730,20 @@ if run_btn:
 
                 current_dt += timedelta(minutes=30 * steps_in_chunk)
 
-            # Assemblage & stitch
+            # Assemblage et correction de biais
             df_conso_new = pd.DataFrame(pred_conso_list).set_index("Date")["Prédiction (MW)"]
             df_eol_new   = pd.DataFrame(pred_eol_list).set_index("Date")["Prédiction (MW)"]
             df_sol_new   = pd.DataFrame(pred_sol_list).set_index("Date")["Prédiction (MW)"]
+    
+            # Récupère la vraie valeur à l'instant T
+            current_conso = safe_last(df_eco2mix_30["consommation"])
+            current_eol   = safe_last(df_eco2mix_30["eolien"])
+            current_sol   = safe_last(df_eco2mix_30["solaire"])
+    
+            # Lisse la transition (decay_rate=0.85 signifie que l'erreur s'efface en ~4 heures)
+            df_conso_new = apply_error_decay(current_conso, df_conso_new, decay_rate=0.85)
+            df_eol_new   = apply_error_decay(current_eol, df_eol_new, decay_rate=0.85)
+            df_sol_new   = apply_error_decay(current_sol, df_sol_new, decay_rate=0.85)
 
             if old_run:
                 df_conso = stitch_forecasts(old_run["conso"],    df_conso_new, last_known_dt).to_frame("Prédiction (MW)")
